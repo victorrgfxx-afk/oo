@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Website Builder Embed</title>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #app { height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="aiwb.js"></script>
+  <script>
+    // parse query params
+    const params = new URLSearchParams(window.location.search);
+    const opts = {};
+    for (const [key, value] of params.entries()) {
+      opts[key] = value === '' ? true : decodeURIComponent(value);
+    }
+    const parentOrigin = opts.parentOrigin || '*';
+    // initialize
+    const root = document.getElementById('app');
+    const api = AIWB.init(root, {
+      project: opts.project || 'AI Website Builder',
+      mode: opts.mode || 'light',
+      theme: opts.theme || '#6366f1',
+      compact: opts.compact || false,
+      goal: opts.goal,
+      audience: opts.audience,
+      keywords: opts.keywords
+    });
+    ['ready','generate','export'].forEach((type) => {
+      api.on('aiwb:' + type, (e) => {
+        window.parent.postMessage({ source: 'aiwb', type, detail: e.detail }, parentOrigin);
+      });
+    });
+  </script>
+</body>
+</html>
