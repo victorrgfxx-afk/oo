@@ -166,9 +166,20 @@ se folosește doar playbook-ul din cod — auditul nu se blochează.
 Auditul rulează prin **Message Batches API**, la 50% din prețul standard, pentru că
 oricum livrăm la 48 de ore.
 
-Per client, cu 6 capturi: în jur de **0,08-0,12 USD**. La 100 de audituri pe lună,
-aproximativ **8-12 USD**. Google Drive/Docs/Sheets sunt gratuite la acest volum,
+Per client, cu 6 capturi: estimativ **0,10-0,20 USD**. La 100 de audituri pe lună,
+aproximativ **10-20 USD**. Google Drive/Docs/Sheets sunt gratuite la acest volum,
 iar Brevo are un plan gratuit de 300 de emailuri pe zi.
 
-Ce influențează costul: numărul de capturi (`MAX_SCREENSHOTS`) și lungimea
-playbook-urilor.
+E o estimare, nu o măsurătoare. Partea greu de prezis e cât gândește modelul
+înainte să răspundă — la efort `high` acei tokeni pot depăși răspunsul propriu-zis,
+și sunt facturați ca output. Pentru cifra ta reală, rulează o dată:
+
+```bash
+npm run audit -- --nisa beauty --username test --dir scripts/fixtures/capturi-demo
+```
+
+Îți afișează tokenii consumați și costul, atât sincron cât și prin Batch.
+
+Ce influențează costul, în ordinea impactului: cât gândește modelul (reglabil din
+`output_config.effort` în `src/lib/audit.ts`), numărul de capturi
+(`MAX_SCREENSHOTS`) și lungimea playbook-urilor.
