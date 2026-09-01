@@ -8,7 +8,9 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "audit": "tsx scripts/audit.ts",
-    "check": "tsx scripts/check-setup.ts"
+    "check": "tsx scripts/check-setup.ts",
+    "setup": "tsx scripts/setup.ts",
+    "google-login": "tsx scripts/google-login.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

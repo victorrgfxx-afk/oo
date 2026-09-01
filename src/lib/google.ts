@@ -70,10 +70,25 @@ async function fetchServiceAccountToken(): Promise<{
     }),
   );
   const signingInput = `${header}.${claim}`;
-  const signature = crypto
-    .createSign("RSA-SHA256")
-    .update(signingInput)
-    .sign(creds.private_key.replace(/\\n/g, "\n"));
+
+  let signature: Buffer;
+  try {
+    signature = crypto
+      .createSign("RSA-SHA256")
+      .update(signingInput)
+      // In JSON-ul descarcat, newline-urile din cheie sunt escapate. Daca
+      // variabila trece printr-un dashboard, uneori raman escapate literal.
+      .sign(creds.private_key.replace(/\\n/g, "\n"));
+  } catch (err) {
+    throw new Error(
+      "Cheia privata din GOOGLE_SERVICE_ACCOUNT_JSON nu poate fi citita. " +
+        "Verifica sa fie exact continutul din fisierul descarcat din Google Cloud, " +
+        "cu blocul -----BEGIN PRIVATE KEY----- intact. Daca dashboard-ul strica " +
+        "newline-urile, codifica tot JSON-ul in base64 si pune rezultatul. " +
+        `(detaliu: ${err instanceof Error ? err.message : String(err)})`,
+    );
+  }
+
   const assertion = `${signingInput}.${base64url(signature)}`;
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -287,6 +302,47 @@ export function folderUrl(folderId: string): string {
 
 export function docUrl(docId: string): string {
   return `https://docs.google.com/document/d/${docId}/edit`;
+}
+
+/** Muta un fisier intr-un alt folder, scotandu-l din parintii curenti. */
+export async function moveFile(fileId: string, parentId: string): Promise<void> {
+  const meta = await googleJson<{ parents?: string[] }>(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=parents`,
+  );
+  const params = new URLSearchParams({
+    supportsAllDrives: "true",
+    addParents: parentId,
+  });
+  if (meta.parents?.length) params.set("removeParents", meta.parents.join(","));
+
+  await googleFetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params}`,
+    { method: "PATCH", headers: { "content-type": "application/json" }, body: "{}" },
+  );
+}
+
+/**
+ * Creeaza o foaie de calcul cu prima fila deja denumita cum trebuie.
+ * Se creeaza in radacina Drive-ului, apoi se muta in folderul cerut.
+ */
+export async function createSpreadsheet(
+  title: string,
+  sheetTitle: string,
+  parentId?: string,
+): Promise<string> {
+  const created = await googleJson<{ spreadsheetId: string }>(
+    "https://sheets.googleapis.com/v4/spreadsheets",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        properties: { title },
+        sheets: [{ properties: { title: sheetTitle } }],
+      }),
+    },
+  );
+  if (parentId) await moveFile(created.spreadsheetId, parentId);
+  return created.spreadsheetId;
 }
 
 /* ---------------------------------- Docs ---------------------------------- */
