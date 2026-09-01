@@ -17,6 +17,7 @@
  *   --note        ce a scris clientul despre situatia lui
  *   --out         unde se scriu rezultatele   (implicit: ./rezultate)
  *   --fara-api    foloseste un audit de proba, nu cheama Claude (gratis)
+ *   --fara-trimitere  construieste cererea reala si o inspecteaza, dar nu o trimite
  *
  * Se pot da si cai de fisiere direct, ca argumente pozitionale.
  */
@@ -82,6 +83,65 @@ function bar(score: number): string {
   return `${color("█".repeat(filled))}${c.dim("░".repeat(20 - filled))}`;
 }
 
+/**
+ * Afiseaza ce contine cererea care ar pleca spre model, fara sa o trimita.
+ * Util ca sa verifici ca playbook-ul si capturile ajung acolo unde trebuie,
+ * si ca sa vezi cat de mare e cererea inainte sa platesti pentru ea.
+ */
+function inspectRequest(
+  request: Awaited<ReturnType<typeof buildAuditRequest>>,
+): void {
+  const params = request.params;
+  const content = params.messages[0].content as Array<{
+    type: string;
+    text?: string;
+    source?: { data?: string; media_type?: string };
+  }>;
+
+  const texts = content.filter((b) => b.type === "text");
+  const images = content.filter((b) => b.type === "image");
+  const payloadBytes = JSON.stringify(params).length;
+
+  console.log(c.bold("Cererea catre model (nu a fost trimisa)\n"));
+  console.log(`  Model             ${params.model}`);
+  console.log(`  max_tokens        ${params.max_tokens}`);
+  console.log(`  Efort             ${params.output_config?.effort ?? "implicit"}`);
+  console.log(`  Schema JSON       ${params.output_config?.format ? "da" : "nu"}`);
+  console.log(`  Gandire           ${params.thinking?.type ?? "implicit"}`);
+  console.log(`  Prompt de sistem  ${(params.system as string).length} caractere`);
+  console.log(`  Blocuri de text   ${texts.length}`);
+  console.log(`  Imagini           ${images.length}`);
+  console.log(`  Cerere totala     ${(payloadBytes / 1024 / 1024).toFixed(2)} MB`);
+
+  const playbook = texts.find((b) => b.text?.startsWith("# Playbook intern"));
+  console.log(
+    `\n  ${playbook ? c.green("✓") : c.red("✗")} playbook-ul de nisa e inclus` +
+      (playbook ? c.dim(`  (${playbook.text!.length} caractere)`) : ""),
+  );
+  const dateleClientului = texts.some((b) => b.text?.includes("# Datele clientului"));
+  console.log(`  ${dateleClientului ? c.green("✓") : c.red("✗")} datele clientului sunt incluse`);
+
+  let base64Ok = true;
+  for (const image of images) {
+    const data = image.source?.data ?? "";
+    if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data) || data.length === 0) base64Ok = false;
+  }
+  console.log(`  ${base64Ok ? c.green("✓") : c.red("✗")} toate imaginile sunt base64 valid`);
+  console.log(
+    `  ${payloadBytes < 32 * 1024 * 1024 ? c.green("✓") : c.red("✗")} cererea incape in limita de 32 MB`,
+  );
+
+  console.log(`\n${c.dim("  Ordinea blocurilor:")}`);
+  content.forEach((block, i) => {
+    const label =
+      block.type === "image"
+        ? `imagine ${block.source?.media_type}, ${((block.source?.data?.length ?? 0) / 1024).toFixed(0)} KB base64`
+        : `text: ${block.text?.slice(0, 58).replace(/\n/g, " ")}...`;
+    console.log(c.dim(`    ${String(i + 1).padStart(2)}. ${label}`));
+  });
+  console.log("");
+}
+
 async function main() {
   loadEnvFiles();
   const args = parseArgs(process.argv.slice(2));
@@ -89,6 +149,7 @@ async function main() {
   const nicheId = args.values.get("nisa");
   const rawUsername = args.values.get("username");
   const withoutApi = args.flags.has("fara-api");
+  const dryRun = args.flags.has("fara-trimitere");
 
   if (!nicheId || !rawUsername) {
     console.error(
@@ -163,6 +224,11 @@ async function main() {
     console.log(c.dim(`${screenshots.length} capturi, ${totalMb.toFixed(1)} MB\n`));
 
     const request = await buildAuditRequest(lead, screenshots);
+
+    if (dryRun) {
+      inspectRequest(request);
+      return;
+    }
 
     // Productia ruleaza prin Batch API (jumatate de pret, pana la 24h).
     // Aici mergem sincron, ca sa vezi rezultatul imediat.

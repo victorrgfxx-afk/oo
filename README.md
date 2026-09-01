@@ -110,7 +110,30 @@ majore, primele idei, un set de verificări automate (12 idei? 3 variante de bio
 încap în 150 de caractere?) și costul rulării.
 
 Opțiuni: `--platforme instagram,tiktok`, `--note "ce a scris clientul"`,
-`--nume`, `--site`, `--out <folder>`.
+`--nume`, `--site`, `--out <folder>`, `--fara-trimitere` (construiește cererea
+reală și o inspectează — model, efort, schemă, ordinea blocurilor, mărimea
+imaginilor — fără să o trimită).
+
+### Material de test
+
+`scripts/fixtures/capturi-demo/` conține trei capturi ale unui profil de
+Instagram fictiv din nișa beauty, cu **defecte plantate intenționat**. Îl
+folosești ca să verifici dacă agentul le găsește:
+
+```bash
+npm run audit -- --nisa beauty --username ana_beauty_official \
+  --dir scripts/fixtures/capturi-demo
+```
+
+Defectele plantate (numele afișat fără serviciu și oraș, bio generic, lipsa
+linkului, highlights doar cu emoji, trei postere Canva în grid, descrieri numai
+din hashtag-uri, engagement mic) sunt listate de
+`node scripts/fixtures/genereaza-demo.mjs`, care le și regenerează.
+
+Atenție: e un profil sintetic. Validează fluxul și e util ca să compari
+playbook-uri între ele, dar pozele sunt gradiente, nu fotografii reale — pentru
+a judeca recomandările pe partea vizuală, folosește capturi de pe un cont
+adevărat.
 
 ## Verificarea configurării
 
