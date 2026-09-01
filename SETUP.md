@@ -86,8 +86,18 @@ Aplicația scrie în Drive-ul tău, ca și cum ai crea tu fișierele. Fără Sha
 3. `MAIL_FROM_NAME` = numele care apare în inbox.
 4. `TEAM_EMAIL` = unde vrei notificările interne (lead nou, draft gata, eroare).
 
-> Livrabilitatea depinde de configurarea SPF și DKIM pe domeniul tău. Brevo îți dă
-> înregistrările DNS exacte; fără ele, o parte din emailuri ajung în spam.
+> **Nu folosi o adresă @gmail.com ca expeditor.** Nu poți configura SPF și DKIM
+> pentru gmail.com — nu e domeniul tău — deci mailurile nu trec alinierea DMARC și
+> ajung frecvent în spam. Pentru un audit trimis unui client care nu te cunoaște
+> încă, asta înseamnă că nici nu află că i-ai scris.
+>
+> Folosește o adresă pe domeniul tău (`audit@domeniul-tau.ro`), adaugă domeniul în
+> Brevo la **Senders, Domains & Dedicated IPs**, și pune înregistrările SPF și DKIM
+> pe care ți le dă acolo în DNS-ul de la registrar.
+
+> Dacă `relay.enabled` e `false` pe cont, partea de transactional nu e activată.
+> Verifică în Brevo la **Transactional → Email**. Testul definitiv e
+> `npm run check -- --email`, după ce ai pus `BREVO_API_KEY` în `.env.local`.
 
 ---
 
