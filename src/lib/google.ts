@@ -253,6 +253,22 @@ export async function downloadFile(fileId: string): Promise<Uint8Array> {
   return new Uint8Array(await res.arrayBuffer());
 }
 
+/** Metadatele unui fisier sau folder. Folosit de scriptul de verificare. */
+export async function getFileMeta(fileId: string): Promise<DriveFile> {
+  return googleJson<DriveFile>(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}` +
+      `?supportsAllDrives=true&fields=${encodeURIComponent("id,name,mimeType,webViewLink")}`,
+  );
+}
+
+/** Sterge definitiv un fisier sau folder. Folosit la curatarea testelor. */
+export async function deleteFile(fileId: string): Promise<void> {
+  await googleFetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?supportsAllDrives=true`,
+    { method: "DELETE" },
+  );
+}
+
 /** Face fisierul vizibil pentru oricine are linkul (rol `reader`). */
 export async function shareWithLink(fileId: string): Promise<void> {
   await googleFetch(

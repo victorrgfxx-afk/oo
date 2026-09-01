@@ -73,6 +73,9 @@ src/
     store.ts                    persistență pe Google Sheets
     mail.ts                     Brevo + șabloanele de email
     format.ts, auth.ts, env.ts  utilitare
+scripts/
+  audit.ts                      agentul de test, pe capturi locale
+  check-setup.ts                verifică Google, Sheets, Brevo, Anthropic
 ```
 
 ## Ce conține auditul livrat
@@ -85,6 +88,40 @@ de nume afișat și trei de bio scrise complet, CTA-uri și denumiri de highligh
 
 Documentul se generează cu o notă internă la început, pe care echipa o șterge
 înainte de trimitere.
+
+## Agentul de test
+
+Rulează exact același prompt, aceeași schemă și aceeași randare ca producția, dar
+pe capturi de pe disc și fără să atingă Drive, Sheets sau Brevo. Îl folosești ca
+să vezi calitatea auditului înainte de a porni sistemul, și ca să reglezi
+playbook-urile de nișă iterând rapid.
+
+```bash
+# audit real pe capturi de pe disc
+npm run audit -- --nisa beauty --username ana_beauty --dir ./capturi
+
+# doar randarea, fără să cheme Claude și fără să coste nimic
+npm run audit -- --nisa horeca --username local --fara-api
+```
+
+Scrie două fișiere în `rezultate/`: `.md` (documentul exact cum ajunge în Google
+Docs) și `.json` (răspunsul brut). În terminal afișează scorurile, problemele
+majore, primele idei, un set de verificări automate (12 idei? 3 variante de bio?
+încap în 150 de caractere?) și costul rulării.
+
+Opțiuni: `--platforme instagram,tiktok`, `--note "ce a scris clientul"`,
+`--nume`, `--site`, `--out <folder>`.
+
+## Verificarea configurării
+
+```bash
+npm run check              # verifică tot, fără să lase urme
+npm run check -- --email   # trimite și un email de test către TEAM_EMAIL
+```
+
+Cere un token Google, citește folderul-părinte, creează și șterge un folder și un
+document de probă, pune antetul în foaia de calcul, încarcă playbook-urile și
+atinge Anthropic cu o cerere minimă. Dacă trece tot, fluxul real funcționează.
 
 ## Instalare
 

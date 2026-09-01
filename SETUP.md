@@ -114,6 +114,25 @@ Poți rula și o singură fază: `?phase=dispatch`, `?phase=collect`, `?phase=de
 
 ## 7. Verificare
 
+Rulează întâi verificatorul automat — testează chiar apelurile reale și îți spune
+exact ce nu merge:
+
+```bash
+npm run check              # Google, Drive, Docs, Sheets, playbook-uri, Anthropic
+npm run check -- --email   # și un email de test către TEAM_EMAIL
+```
+
+Creează și șterge singur un folder și un document de probă, deci nu lasă urme.
+
+Apoi vezi cum arată un audit real, fără să pornești tot sistemul — pune câteva
+capturi într-un folder și rulează:
+
+```bash
+npm run audit -- --nisa beauty --username ana_beauty --dir ./capturi
+```
+
+În final, testul complet prin interfață:
+
 1. Deschide `/admin`, intră cu `ADMIN_PASSWORD`. Trebuie să vezi tabelul gol.
 2. Completează formularul de pe pagina principală cu adresa ta, cu 2-3 capturi.
 3. În Drive apare imediat folderul `@username - Nișă - data` cu subfolderul `01-capturi`.

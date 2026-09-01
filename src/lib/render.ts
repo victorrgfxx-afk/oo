@@ -87,13 +87,15 @@ export function renderAudit(lead: Lead, audit: AuditResult): DocBlock[] {
       "Numele afisat e camp cautabil pe Instagram si TikTok. Daca nu contine serviciul si orasul, " +
       "pierzi cautari care ti-ar aduce clienti locali.",
   });
+  // Variantele stau intre ghilimele ca sa se vada exact ce se copiaza:
+  // fara ele, textul se amesteca vizual cu motivul de dupa.
   for (const option of audit.copy.nume_afisat) {
-    blocks.push({ t: "bullet", text: `${option.varianta} - ${option.motiv}` });
+    blocks.push({ t: "bullet", text: `"${option.varianta}"  -  ${option.motiv}` });
   }
 
   blocks.push({ t: "h3", text: "Bio" });
   for (const option of audit.copy.bio) {
-    blocks.push({ t: "bullet", text: `${option.varianta} - ${option.motiv}` });
+    blocks.push({ t: "bullet", text: `"${option.varianta}"  -  ${option.motiv}` });
   }
 
   blocks.push({ t: "h3", text: "Call to action" });
