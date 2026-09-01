@@ -1,0 +1,112 @@
+# Audit social media — agent + livrare la 48h
+
+Landing page cu formular, un agent care analizează capturi de ecran ale profilului
+și scrie auditul într-un Google Doc, un panou intern din care echipa editează și
+aprobă, și livrare automată pe email la 48 de ore.
+
+Lucrează pe patru nișe: **beauty & estetică, HoReCa, fitness & wellness, imobiliare**.
+
+## Fluxul
+
+```
+Client completează formularul  (nișă, username, email, capturi)
+        │
+        ▼
+/api/submit ──► creează folderul clientului în Drive + urcă capturile
+             ──► scrie rândul în Google Sheets  (stare: queued)
+             ──► email de confirmare + notificare internă
+        │
+        ▼
+cron /api/cron/tick, din oră în oră
+        │
+        ├─ dispatch ─► citește capturile din Drive
+        │              trimite în Claude Message Batches   (stare: processing)
+        │
+        ├─ collect  ─► ia rezultatele, scrie Google Doc-ul
+        │              în folderul clientului              (stare: draft_ready)
+        │              notifică echipa
+        │
+        └─ deliver  ─► trimite pe email ce e aprobat
+                       și a împlinit fereastra de 48h      (stare: sent)
+        │
+        ▼
+    Între collect și deliver intervine echipa:
+    editează documentul, adaugă context, apoi apasă „Aproba" în /admin
+```
+
+Nimic nu pleacă automat către client. `deliver` trimite doar ce a fost aprobat
+manual din panou.
+
+## De ce capturi de ecran, nu link-uri
+
+Instagram, TikTok și Facebook blochează accesul automat la profiluri. Capturile
+ocolesc problema complet și sunt și mai fidele: modelul vede exact ce vede un om
+care intră pe profil.
+
+Capturile pot veni pe două căi, ambele funcționale în paralel:
+- **clientul** le încarcă în formular (redimensionate în browser înainte de upload);
+- **echipa** le pune direct în subfolderul `01-capturi` din Drive.
+
+Un lead fără capturi rămâne în starea `asteapta capturi` și pornește singur la
+următoarea rulare de cron, imediat ce apar fișiere în folder.
+
+## Structura
+
+```
+src/
+  app/
+    page.tsx                    landing page + formular
+    multumim/                   confirmare după trimitere
+    admin/                      panoul intern (listă, aprobare, livrare)
+    api/submit/                 primește formularul, creează folderul, scrie leadul
+    api/cron/tick/              dispatch → collect → deliver
+    api/admin/                  login și acțiuni din panou
+  components/
+    AuditForm.tsx               formularul (redimensionează capturile client-side)
+  lib/
+    audit.ts                    promptul, schema JSON, construirea batch-ului
+    knowledge/*.ts              playbook-urile celor 4 nișe  ← aici se „antrenează"
+    niches.ts                   configurarea nișelor
+    pipeline.ts                 cele trei faze
+    render.ts                   rezultatul modelului → blocuri de Google Doc
+    google.ts                   Drive + Docs + Sheets (fetch, fără googleapis)
+    store.ts                    persistență pe Google Sheets
+    mail.ts                     Brevo + șabloanele de email
+    format.ts, auth.ts, env.ts  utilitare
+```
+
+## Ce conține auditul livrat
+
+Scoruri pe cinci dimensiuni, prima impresie, ce merge deja bine, problemele
+ordonate după prioritate (fiecare cu ce te costă și cum se repară), trei variante
+de nume afișat și trei de bio scrise complet, CTA-uri și denumiri de highlights,
+12 idei de conținut cu hook scris cuvânt cu cuvânt, un plan pe 30 de zile, și
+întrebările la care echipa are nevoie de răspuns.
+
+Documentul se generează cu o notă internă la început, pe care echipa o șterge
+înainte de trimitere.
+
+## Instalare
+
+Vezi [SETUP.md](SETUP.md) — Google Cloud, Drive, Sheets, Brevo, Vercel, cron.
+
+## Dezvoltare locală
+
+```bash
+npm install
+cp .env.example .env.local     # completează valorile
+npm run dev
+```
+
+`npm run typecheck` verifică tipurile. `npm run build` face build-ul de producție.
+
+Fără `BREVO_API_KEY`, emailurile sunt doar logate în consolă — restul fluxului merge.
+
+## Note
+
+- Modelul folosit e `claude-opus-5`, prin Message Batches API (50% din preț,
+  potrivit pentru că livrarea e oricum la 48h).
+- Promptul îi interzice explicit modelului să inventeze cifre pe care nu le vede
+  în capturi; ce nu e vizibil e formulat ca ipoteză sau ajunge în lista de întrebări
+  pentru client.
+- Widget-ul mai vechi din repo a fost mutat în `public/legacy/`, neatins.
