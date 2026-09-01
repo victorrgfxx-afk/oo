@@ -1,152 +1,165 @@
 # Instalare
 
-Durează aproximativ 45 de minute prima dată. Parcurge pașii în ordine.
+Cea mai mare parte e automatizată. Drumul scurt, pe cont Google personal:
+
+```bash
+npm install
+npm run google-login    # deschide browserul, aprobi, gata
+npm run setup           # creează folderul, foaia, playbook-urile
+npm run check           # verifică tot, cu apeluri reale
+```
+
+Rămâne de făcut de mână doar ce nu poate fi automatizat: un OAuth client în
+Google Cloud, cheia Anthropic, cheia Brevo și deploy-ul. Sub 15 minute în total.
 
 ---
 
 ## 1. Cheia Anthropic
 
-1. Intră pe [console.anthropic.com](https://console.anthropic.com) → **API Keys** → creează o cheie.
-2. Pune-o în `ANTHROPIC_API_KEY`.
-3. Adaugă credit pe cont. Vezi secțiunea **Costuri** de mai jos pentru ce înseamnă asta în bani.
+[console.anthropic.com](https://console.anthropic.com) → **API Keys** → creează o
+cheie (`sk-ant-api03-...`) și adaugă credit pe cont.
+
+Atenție: un abonament Claude.ai (Pro/Max) **nu** îți dă acces la API — sunt
+facturate separat. Cheile de Admin (`sk-ant-admin...`) nu funcționează aici.
+
+```bash
+echo "ANTHROPIC_API_KEY=sk-ant-api03-..." >> .env.local
+```
+
+Cu asta singură poți deja rula agentul pe capturi locale, fără nimic altceva:
+
+```bash
+npm run audit -- --nisa beauty --username ana_beauty_official \
+  --dir scripts/fixtures/capturi-demo
+```
+
+Fă asta **înainte** de restul setup-ului. Dacă auditul nu te convinge, ai aflat
+în două minute, nu după o oră de configurări.
 
 ---
 
-## 2. Google Cloud: activarea API-urilor
+## 2. Google Cloud
 
-1. [console.cloud.google.com](https://console.cloud.google.com) → creează un proiect (ex. `audit-social`).
-2. **APIs & Services → Library** → activează, pe rând:
-   - Google Drive API
-   - Google Docs API
-   - Google Sheets API
+Singura parte care nu poate fi automatizată — necesită browserul tău.
 
----
+1. [console.cloud.google.com](https://console.cloud.google.com) → creează un
+   proiect (ex. `audit-social`).
+2. **APIs & Services → Library** → activează: **Google Drive API**,
+   **Google Docs API**, **Google Sheets API**.
+3. **OAuth consent screen** → tip **External** → completează datele minime →
+   adaugă-te ca **Test user**.
+4. **Credentials → Create credentials → OAuth client ID** → tip
+   **Web application** → la **Authorized redirect URIs** adaugă exact:
 
-## 3. Google: autentificarea
+   ```
+   http://127.0.0.1:53682/callback
+   ```
 
-Ai două variante. **Alege una singură.**
+5. Copiază **Client ID** și **Client secret**.
 
-### Varianta A — service account (dacă ai Google Workspace)
+Apoi:
 
-Recomandată dacă lucrezi cu un **Shared Drive**. Un service account nu are spațiu
-propriu în Drive, deci nu poate crea fișiere într-un „My Drive" obișnuit — de
-aceea are nevoie de Shared Drive.
+```bash
+npm run google-login
+```
 
-1. **IAM & Admin → Service Accounts** → creează unul.
-2. La contul creat: **Keys → Add key → Create new key → JSON**. Se descarcă un fișier.
-3. Pune conținutul întreg al fișierului în `GOOGLE_SERVICE_ACCOUNT_JSON`.
-   Dacă interfața Vercel se împiedică de ghilimele și newline-uri, codifică-l base64
-   (`base64 -w0 cheie.json`) și pune rezultatul — aplicația acceptă ambele forme.
-4. În Drive, creează un **Shared Drive**, iar în el un folder (ex. `Audituri`).
-5. Dă acces de **Content manager** la adresa service account-ului
-   (`...@...iam.gserviceaccount.com`), atât pe Shared Drive cât și pe foaia de calcul.
+Îți cere cele două valori, deschide fluxul de autorizare, și scrie singur
+refresh token-ul în `.env.local`.
 
-### Varianta B — OAuth pe contul tău (dacă ai Gmail personal)
-
-Aplicația scrie în Drive-ul tău, ca și cum ai crea tu fișierele. Fără Shared Drive.
-
-1. **APIs & Services → OAuth consent screen** → tip **External** → completează
-   datele minime → la **Scopes** adaugă `.../auth/drive`, `.../auth/documents`,
-   `.../auth/spreadsheets` → adaugă-te ca **Test user**.
-2. **Credentials → Create credentials → OAuth client ID** → tip **Web application** →
-   la **Authorized redirect URIs** adaugă `https://developers.google.com/oauthplayground`.
-3. Notează `Client ID` și `Client secret`.
-4. Intră pe [OAuth Playground](https://developers.google.com/oauthplayground) →
-   rotița din dreapta sus → bifează **Use your own OAuth credentials** → pune ID-ul și secretul.
-5. În stânga, la **Step 1**, introdu manual cele trei scope-uri de mai sus →
-   **Authorize APIs** → aprobă cu contul tău.
-6. **Step 2 → Exchange authorization code for tokens** → copiază **Refresh token**.
-7. Completează `GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET`,
-   `GOOGLE_OAUTH_REFRESH_TOKEN` și lasă `GOOGLE_SERVICE_ACCOUNT_JSON` gol.
-
-> Cât timp aplicația e în modul **Testing** pe consent screen, refresh token-ul expiră
-> la 7 zile. Pentru producție, publică aplicația (**Publish app**). Fiind scope-uri
-> sensibile, Google poate cere verificare; până atunci merge cu tine ca test user,
-> reînnoind token-ul săptămânal.
+> Cât timp aplicația e în modul **Testing** pe consent screen, refresh token-ul
+> expiră la 7 zile. Pentru producție apasă **Publish app**. Fiind scope-uri
+> sensibile, Google poate cere verificare; până atunci rulezi `npm run google-login`
+> din nou o dată pe săptămână.
 
 ---
 
-## 4. Folderul din Drive și foaia de calcul
+## 3. Provizionarea
 
-1. Creează în Drive folderul părinte (ex. `Audituri`). Deschide-l și ia ID-ul din URL:
-   `drive.google.com/drive/folders/`**`ACESTA_E_ID-UL`** → `GOOGLE_DRIVE_PARENT_FOLDER_ID`.
-2. Creează o foaie de calcul goală (ex. `Audituri - leaduri`). ID-ul e din URL:
-   `docs.google.com/spreadsheets/d/`**`ACESTA_E_ID-UL`**`/edit` → `GOOGLE_SHEET_ID`.
-3. Redenumește prima filă în `Leads` (sau schimbă `GOOGLE_SHEET_NAME`).
-4. **Nu scrie nimic în ea** — aplicația își pune singură antetul la prima cerere.
-5. Dacă folosești varianta A, dă acces de editor pe foaie service account-ului.
+```bash
+npm run setup
+```
+
+Creează în Drive-ul tău:
+
+- folderul **Audituri - clienti** (aici apare câte un subfolder per client),
+- foaia **Audituri - leaduri**, cu fila și antetul puse,
+- folderul **Audituri - playbook-uri**, cu câte un Google Doc per nișă.
+
+Scrie toate ID-urile în `.env.local` și generează `ADMIN_PASSWORD` și
+`CRON_SECRET`. Rulează de câte ori vrei — găsește ce există deja și nu duplică.
 
 ---
 
-## 5. Brevo (emailuri)
+## 4. Brevo
 
-1. [brevo.com](https://www.brevo.com) → cont → **SMTP & API → API Keys** → creează o cheie →
-   `BREVO_API_KEY`.
-2. **Senders** → adaugă și verifică adresa de expeditor → `MAIL_FROM_EMAIL`.
-3. `MAIL_FROM_NAME` = numele care apare în inbox.
-4. `TEAM_EMAIL` = unde vrei notificările interne (lead nou, draft gata, eroare).
+1. [brevo.com](https://www.brevo.com) → **SMTP & API → API Keys** → creează o
+   cheie → `BREVO_API_KEY`.
+2. **Senders, Domains & Dedicated IPs** → adaugă **domeniul tău** și pune
+   înregistrările SPF și DKIM pe care ți le dă, în DNS-ul de la registrar.
+3. `MAIL_FROM_EMAIL=audit@domeniul-tau.ro`, `MAIL_FROM_NAME=Numele agenției`,
+   `TEAM_EMAIL=` unde vrei notificările interne.
 
 > **Nu folosi o adresă @gmail.com ca expeditor.** Nu poți configura SPF și DKIM
-> pentru gmail.com — nu e domeniul tău — deci mailurile nu trec alinierea DMARC și
-> ajung frecvent în spam. Pentru un audit trimis unui client care nu te cunoaște
-> încă, asta înseamnă că nici nu află că i-ai scris.
->
-> Folosește o adresă pe domeniul tău (`audit@domeniul-tau.ro`), adaugă domeniul în
-> Brevo la **Senders, Domains & Dedicated IPs**, și pune înregistrările SPF și DKIM
-> pe care ți le dă acolo în DNS-ul de la registrar.
+> pentru gmail.com — nu e domeniul tău — deci mailurile nu trec alinierea DMARC
+> și ajung frecvent în spam. Pentru un audit trimis unui client care nu te
+> cunoaște încă, asta înseamnă că nici nu află că i-ai scris.
 
 > Dacă `relay.enabled` e `false` pe cont, partea de transactional nu e activată.
-> Verifică în Brevo la **Transactional → Email**. Testul definitiv e
-> `npm run check -- --email`, după ce ai pus `BREVO_API_KEY` în `.env.local`.
+> Verifică în Brevo la **Transactional → Email**.
+
+Testul definitiv:
+
+```bash
+npm run check -- --email
+```
 
 ---
 
-## 6. Deploy pe Vercel
+## 5. Deploy pe Vercel
 
-1. Importă repo-ul în Vercel.
-2. **Settings → Environment Variables** → adaugă tot ce e în `.env.example`.
+1. [vercel.com](https://vercel.com) → **Add New → Project** → conectează contul
+   de GitHub și importă repo-ul. (Dacă Vercel nu vede repo-ul, instalează
+   aplicația Vercel pe contul de GitHub și dă-i acces.)
+2. **Settings → Environment Variables** → copiază tot din `.env.local`.
 3. Deploy.
-4. `vercel.json` înregistrează deja cron-ul orar pe `/api/cron/tick`.
 
-### Atenție la planul Hobby
+Odată legat, fiecare push se deployează singur.
 
-Pe **Hobby**, Vercel permite un singur cron job și doar o rulare pe zi — prea rar
-pentru o promisiune de 48 de ore. Ai două opțiuni:
+### Programarea rulărilor
 
-- **Vercel Pro** — cron-ul orar din `vercel.json` funcționează ca atare.
-- **Scheduler extern** (gratuit) — [cron-job.org](https://cron-job.org), Make sau n8n,
-  configurat să apeleze din oră în oră:
-  `https://domeniul-tau.ro/api/cron/tick?key=VALOAREA_DIN_CRON_SECRET`
+`vercel.json` înregistrează un cron zilnic, fiindcă **planul Hobby permite doar
+o rulare pe zi** — prea rar pentru o promisiune de 48 de ore.
 
-Poți rula și o singură fază: `?phase=dispatch`, `?phase=collect`, `?phase=deliver`.
+Pe Hobby, pune un scheduler extern gratuit ([cron-job.org](https://cron-job.org),
+Make sau n8n) care să apeleze din oră în oră:
+
+```
+https://domeniul-tau.ro/api/cron/tick?key=VALOAREA_DIN_CRON_SECRET
+```
+
+`npm run setup` îți afișează adresa completă, gata de copiat.
+
+Pe **Vercel Pro**, schimbă în `vercel.json` programul în `0 * * * *` și nu-ți mai
+trebuie nimic extern.
+
+Se poate rula și o singură fază: `?phase=dispatch`, `?phase=collect`,
+`?phase=deliver`.
 
 ---
 
-## 7. Verificare
-
-Rulează întâi verificatorul automat — testează chiar apelurile reale și îți spune
-exact ce nu merge:
+## 6. Verificare finală
 
 ```bash
-npm run check              # Google, Drive, Docs, Sheets, playbook-uri, Anthropic
-npm run check -- --email   # și un email de test către TEAM_EMAIL
+npm run check
 ```
 
-Creează și șterge singur un folder și un document de probă, deci nu lasă urme.
+Apoi testul complet prin interfață:
 
-Apoi vezi cum arată un audit real, fără să pornești tot sistemul — pune câteva
-capturi într-un folder și rulează:
-
-```bash
-npm run audit -- --nisa beauty --username ana_beauty --dir ./capturi
-```
-
-În final, testul complet prin interfață:
-
-1. Deschide `/admin`, intră cu `ADMIN_PASSWORD`. Trebuie să vezi tabelul gol.
-2. Completează formularul de pe pagina principală cu adresa ta, cu 2-3 capturi.
-3. În Drive apare imediat folderul `@username - Nișă - data` cu subfolderul `01-capturi`.
-4. În `/admin`, apasă **Ruleaza pipeline-ul acum**. Starea trece în `se analizeaza`.
+1. Deschide `/admin`, intră cu `ADMIN_PASSWORD`. Tabelul e gol.
+2. Completează formularul cu adresa ta și 2-3 capturi.
+3. În Drive apare folderul `@username - Nișă - data` cu subfolderul `01-capturi`.
+4. În `/admin`, apasă **Ruleaza pipeline-ul acum**. Starea trece în
+   `se analizeaza`.
 5. Batch-ul durează de obicei sub o oră. Mai apasă o dată; starea devine
    `draft de verificat` și apare linkul către document.
 6. Editează documentul, apoi **Aproba** (pleacă la 48h) sau **Trimite acum**.
@@ -155,41 +168,48 @@ npm run audit -- --nisa beauty --username ana_beauty --dir ./capturi
 
 ## Antrenarea agentului de conținut
 
-Playbook-ul fiecărei nișe e ce citește modelul înainte să scrie ideile. Sunt două
-moduri de a-l îmbunătăți:
+Playbook-ul fiecărei nișe e ce citește modelul înainte să scrie ideile.
 
-**În cod** (permanent, versionat): editează
-`src/lib/knowledge/beauty.ts`, `horeca.ts`, `fitness.ts`, `imobiliare.ts`.
-E text simplu între backtick-uri. Cu cât pui mai multe exemple reale din piață —
-hook-uri care au mers, greșeli pe care le vezi des, formate care performează —
-cu atât ies ideile mai bune. Necesită deploy.
+**Dintr-un Google Doc** (rapid, fără deploy): `npm run setup` ți-a creat deja
+câte unul per nișă, în folderul **Audituri - playbook-uri**. Tot ce scrii acolo
+se adaugă la playbook-ul din cod, la fiecare rulare.
 
-**Dintr-un Google Doc** (rapid, fără deploy): creează un Doc per nișă, pune ID-ul
-în `KB_DOC_ID_BEAUTY` etc. Textul din Doc se adaugă la playbook-ul din cod la
-fiecare rulare. Bun pentru completări între deploy-uri. Dacă Doc-ul e inaccesibil,
-se folosește doar playbook-ul din cod — auditul nu se blochează.
+**În cod** (permanent, versionat): `src/lib/knowledge/beauty.ts`, `horeca.ts`,
+`fitness.ts`, `imobiliare.ts`. Text simplu între backtick-uri.
+
+Bucla de lucru: modifici playbook-ul, rulezi `npm run audit` pe aceleași capturi,
+compari rezultatele. Durează un minut.
 
 ---
 
 ## Costuri
 
-Auditul rulează prin **Message Batches API**, la 50% din prețul standard, pentru că
-oricum livrăm la 48 de ore.
+Auditul rulează prin **Message Batches API**, la 50% din prețul standard.
 
-Per client, cu 6 capturi: estimativ **0,10-0,20 USD**. La 100 de audituri pe lună,
-aproximativ **10-20 USD**. Google Drive/Docs/Sheets sunt gratuite la acest volum,
-iar Brevo are un plan gratuit de 300 de emailuri pe zi.
+Per client, cu 6 capturi: estimativ **0,10-0,20 USD**. La 100 de audituri pe
+lună, aproximativ **10-20 USD**. Google e gratuit la acest volum, iar Brevo are
+un plan gratuit de 300 de emailuri pe zi (un audit consumă 3).
 
 E o estimare, nu o măsurătoare. Partea greu de prezis e cât gândește modelul
-înainte să răspundă — la efort `high` acei tokeni pot depăși răspunsul propriu-zis,
-și sunt facturați ca output. Pentru cifra ta reală, rulează o dată:
-
-```bash
-npm run audit -- --nisa beauty --username test --dir scripts/fixtures/capturi-demo
-```
-
-Îți afișează tokenii consumați și costul, atât sincron cât și prin Batch.
+înainte să răspundă — la efort `high` acei tokeni pot depăși răspunsul propriu-zis
+și sunt facturați ca output. Pentru cifra ta reală, rulează o dată `npm run audit`;
+îți afișează tokenii și costul, atât sincron cât și prin Batch.
 
 Ce influențează costul, în ordinea impactului: cât gândește modelul (reglabil din
 `output_config.effort` în `src/lib/audit.ts`), numărul de capturi
 (`MAX_SCREENSHOTS`) și lungimea playbook-urilor.
+
+---
+
+## Anexă: service account în loc de OAuth
+
+Dacă ai Google Workspace și preferi un service account:
+
+1. **IAM & Admin → Service Accounts** → creează unul → **Keys → Add key → JSON**.
+2. Pune conținutul fișierului în `GOOGLE_SERVICE_ACCOUNT_JSON` (sau același JSON
+   codificat base64, dacă dashboard-ul strică newline-urile).
+3. Un service account **nu are spațiu propriu în Drive**, deci fișierele trebuie
+   create într-un **Shared Drive**. Creează acolo un folder, dă acces de
+   **Content manager** adresei `...@...iam.gserviceaccount.com`, și pune ID-ul
+   folderului în `GOOGLE_DRIVE_PARENT_FOLDER_ID`.
+4. Dă acces și pe foaia de calcul, apoi rulează `npm run setup`.

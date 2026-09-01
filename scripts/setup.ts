@@ -225,6 +225,18 @@ async function main() {
     console.log("");
   }
 
+  /* ------------------------------ Programare ------------------------------ */
+  const secret = val("CRON_SECRET") || modificari.CRON_SECRET;
+  const site = val("PUBLIC_SITE_URL") || "https://domeniul-tau.ro";
+  console.log(c.bold("Programarea rularilor"));
+  console.log("  Pe planul Hobby, Vercel ruleaza cron-ul o singura data pe zi - prea rar");
+  console.log("  pentru fereastra de 48h. Pune un scheduler extern (cron-job.org e gratuit)");
+  console.log("  sa apeleze din ora in ora exact adresa asta:\n");
+  console.log(`  ${c.bold(`${site}/api/cron/tick?key=${secret}`)}\n`);
+  if (!val("PUBLIC_SITE_URL")) {
+    console.log(c.dim("  (inlocuieste domeniul dupa ce faci deploy)\n"));
+  }
+
   console.log(`Verifica tot cu:  ${c.bold("npm run check")}\n`);
 }
 

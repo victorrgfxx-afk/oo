@@ -76,6 +76,9 @@ src/
 scripts/
   audit.ts                      agentul de test, pe capturi locale
   check-setup.ts                verifică Google, Sheets, Brevo, Anthropic
+  google-login.ts               flux OAuth local → refresh token
+  setup.ts                      provizionează Drive, foaia, playbook-urile
+  fixtures/                     profil demo cu defecte plantate
 ```
 
 ## Ce conține auditul livrat
@@ -148,7 +151,19 @@ atinge Anthropic cu o cerere minimă. Dacă trece tot, fluxul real funcționeaz�
 
 ## Instalare
 
-Vezi [SETUP.md](SETUP.md) — Google Cloud, Drive, Sheets, Brevo, Vercel, cron.
+```bash
+npm install
+npm run google-login    # obține credențialele Google, local
+npm run setup           # creează folderul, foaia și playbook-urile în Drive
+npm run check           # verifică tot, cu apeluri reale
+```
+
+`google-login` pornește un server local, te trimite în browser să aprobi, și
+scrie refresh token-ul în `.env.local`. `setup` provizionează Drive-ul, generează
+parolele care lipsesc și e idempotent — îl rulezi de câte ori vrei.
+
+Detaliile, inclusiv partea care rămâne manuală (OAuth client în Google Cloud,
+cheile Anthropic și Brevo, deploy-ul): [SETUP.md](SETUP.md).
 
 ## Dezvoltare locală
 
